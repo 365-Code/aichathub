@@ -7,7 +7,7 @@ const VercelLogo = () => {
         <svg
           data-testid="geist-icon"
           height="30"
-          stroke-linejoin="round"
+          strokeLinejoin="round"
           viewBox="0 0 16 16"
           width="30"
           style={{ color: "currentcolor" }}

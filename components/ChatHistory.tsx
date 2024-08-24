@@ -1,47 +1,91 @@
-import React, { useEffect, useState } from "react";
-import { ResizablePanel } from "./ui/resizable";
+import React from "react";
 import { Button } from "./ui/button";
-import { MessageCircle } from "lucide-react";
-import { hstry } from "@/utils";
-import ChatTitle from "./ChatTitle";
+import { MessageCircle, SidebarClose } from "lucide-react";
+import { useChatState } from "@/context/ChatState";
+import { isVoidExpression } from "typescript";
 
-const ChatHistory = () => {
-  const [showHistory, setShowHistory] = useState(false);
+type ChatHistoryProps = {
+  isVisible: boolean;
+  hideHistory: () => void;
+};
 
-  const [chats, setChats] = useState([]);
+const ChatHistory = ({ isVisible, hideHistory }: ChatHistoryProps) => {
+  const [history, setHistory] = React.useState<Array<{
+    chatId: string;
+    title: string;
+  }> | null>(null);
 
-  const fetchChats = () => {
-    
-  }
+  const fetchHistory = async () => {
+    try {
+      const response = await fetch("/api/msg/get-all-chat");
+      if (response.ok) {
+        const result = await response.json();
+        setHistory(result.history.reverse());
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
-  useEffect(() => {
-    fetchChats()
-  }, [])
+  React.useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const { chat, fetchChat, setChat } = useChatState();
+
+  const handleNewChat = () => {
+    if (!chat) return;
+    if (history?.findIndex((hst) => hst.chatId != chat.id) === -1) {
+      setHistory([{ chatId: chat.id, title: chat.title }, ...history]);
+    }
+    setChat(null);
+    setActiveChat(-1);
+  };
+
+  const [activeChat, setActiveChat] = React.useState(0);
 
   return (
-    <ResizablePanel
-      className={`md:max-w-[25%] w-full md:bg-auto p-6 max-h-screen custom-scrollbar overflow-y-scroll transition-all md:translate-x-0 md:opacity-100 md:relative md:z-auto fixed ${showHistory ? "translate-x-0 opacity-100 z-20 bg-black" : "-translate-x-full opacity-0"}`}
-      minSize={15}
-      defaultSize={20}
-      maxSize={25}
-    >
+    <>
       <div className="flex items-center justify-between">
-        <h2 className="font-medium text-xl">Chat History</h2>
-        <Button
-          variant={"outline"}
-          size={"icon"}
-          title="New Chat"
-          className="rounded-full text-center"
-        >
-          <MessageCircle className="w-[1.2rem] h-[1.2rem]" />
-        </Button>
+        <h2 className="font-semibold text-lg text-white">Chat History</h2>
+        <div className="flex items-center gap-x-2">
+          <Button onClick={hideHistory} className="md:hidden text-black">
+            <SidebarClose
+              className={`transition-transform ${isVisible ? "rotate-0 opacity-100" : "rotate-90 opacity-0"} duration-300`}
+            />
+          </Button>
+          <Button
+            variant={"outline"}
+            size={"icon"}
+            title="New Chat"
+            className="rounded-full text-center border text-white hover:bg-gray-600"
+            onClick={handleNewChat}
+          >
+            <MessageCircle className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
-      <div className="mt-2 space-y-2 max-h-[95%] custom-scrollbar overflow-y-scroll">
-        {hstry.map((m, i) => (
-          <ChatTitle title={m.title} />
+      <div className="mt-4 space-y-2 h-full max-h-[93%] custom-scrollbar scroll-smooth overflow-y-auto">
+        {history && history.length === 0 && (
+          <h2 className="text-center my-4 font-semibold text-lg text-gray-400">
+            No Chats Yet
+          </h2>
+        )}
+        {history?.map((h, i) => (
+          <Button
+            onClick={() => {
+              setActiveChat(i);
+              fetchChat(h.chatId);
+            }}
+            key={i}
+            variant={activeChat === i ? "default" : "outline"}
+            className={`w-full text-left ${activeChat === i ? "dark:hover:text-black bg-gray-700 text-white" : "text-gray-200"}`}
+          >
+            <p className="truncate">{h.title}</p>
+          </Button>
         ))}
       </div>
-    </ResizablePanel>
+    </>
   );
 };
 

@@ -1,4 +1,6 @@
 import prisma from "@/lib/db/prisma";
+import { generateEmbeddings } from "@/lib/embeddings";
+import { chatIndex } from "@/lib/pinecone";
 import { getUser } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 

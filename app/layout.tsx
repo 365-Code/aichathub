@@ -2,6 +2,18 @@ import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import { ThemeProvider } from "./ThemeProvider";
 import ChatState from "@/context/ChatState";
+import {
+  Fira_Code,
+  Karla,
+  Montserrat,
+  Poppins,
+  Roboto,
+} from "next/font/google";
+
+const font = Montserrat({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+});
 
 const defaultUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
@@ -20,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={GeistSans.className}>
+    <html lang="en" className={font.className}>
       <body className="bg-background text-foreground">
         <ChatState>
           <ThemeProvider attribute="class">

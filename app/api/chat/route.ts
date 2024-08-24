@@ -3,7 +3,12 @@ import { generateEmbeddings } from "@/lib/embeddings";
 import { chatIndex } from "@/lib/pinecone";
 import { getUser } from "@/utils/supabase/server";
 import { google } from "@ai-sdk/google";
-import { CoreMessage, LanguageModel, streamText } from "ai";
+import {
+  convertToCoreMessages,
+  CoreMessage,
+  LanguageModel,
+  streamText,
+} from "ai";
 import { NextResponse } from "next/server";
 
 // Allow streaming responses up to 30 seconds
@@ -14,8 +19,6 @@ export async function POST(req: Request) {
     const body = await req.json();
     const messages: CoreMessage[] = body.messages;
     const truncatedMessages = messages.slice(-6);
-
-    // console.log(messages.at(-1));
 
     const embeddings = await generateEmbeddings(
       truncatedMessages.map((m) => m.content).join("\n")
@@ -30,7 +33,6 @@ export async function POST(req: Request) {
       topK: 3,
       filter: { userId: user.id },
     });
-    // console.log(vectorQueryResponse.matches.map((match) => match.id));
 
     let relevantMessages = null;
     if (vectorQueryResponse.matches.length != 0) {
@@ -41,58 +43,62 @@ export async function POST(req: Request) {
           },
         },
       });
-      console.log(relevantMessages);
     }
+
+    // const systemMessage: CoreMessage = {
+    //   role: "assistant",
+    //   content: `
+    //     You are an intelligent memorizer and query solver. You answer the user's question based on their existing messages first. If the info is personal, answer them you don't know; if it's public, give them the best answer.
+    //     ${
+    //       relevantMessages && relevantMessages?.length != 0
+    //         ? "The relevant messages for this query are:\n" +
+    //           relevantMessages.map((msg) => msg.content).join("\n")
+    //         : ""
+    //     }
+    //     Always format your responses in Markdown.
+    //   `,
+    // };
 
     const systemMessage: CoreMessage = {
       role: "assistant",
-      content:
-        "You are an intelligent memorizer and query solver. You answer the user's question based on their existing messages first. If the info is personal, answer them you don't know, if its public give them the best answer" +
-        (relevantMessages && relevantMessages?.length != 0
-          ? "The relevant messages for this query are:\n" +
-            relevantMessages.map((msg) => msg.content).join("\n")
-          : ""),
-    };
+      content: `
+        **Introduction:**
+        You are an intelligent assistant trained to provide detailed and well-structured responses based on the user's query and relevant past messages.
+    
+        **Response Guidelines:**
+        1. **Start with a Brief Description**: Begin with a short context or background related to the user's query.
+        2. **Provide the Direct Answer**: Clearly state the answer to the user's question.
+        3. **Include Explanations**: Add additional explanations if needed for clarity. Use headings and bullet points where appropriate.
+        4. **Format Using Markdown**:
+           - Use **bold** for important terms or concepts.
+           - Use "code blocks" for technical terms or code snippets.
+           - Use bullet points to list multiple items.
+           - Use **headings** for sections like Introduction, Response, and Explanation.
+    
+        ${
+          relevantMessages && relevantMessages.length > 0
+            ? "Here are some relevant messages to consider:\n\n" +
+              relevantMessages.map((msg) => `- **Message:** ${msg.content}`).join("\n")
+            : "No relevant messages found."
+        }
+    
+        Ensure your responses are well-organized and easy to read.
+      `
+    }
+    
 
+    const msgs = [systemMessage, ...truncatedMessages] as Array<any>;
     const result = await streamText({
       model: google("models/gemini-pro") as LanguageModel,
-      messages: [systemMessage, ...truncatedMessages],
+      messages: convertToCoreMessages(msgs),
     });
 
-    return result.toAIStreamResponse();
+    return result.toAIStreamResponse({
+      headers: { "Content-Type": "text/markdown" },
+    });
+
+    // return result.toAIStreamResponse();
   } catch (error) {
-    console.log(error);
-    return NextResponse.json({ msg: "Chat Api Error" });
+    return NextResponse.json({ msg: "Chat Api Error", error });
   }
 }
-
-// import { GoogleGenerativeAI } from '@google/generative-ai';
-// import { Message, StreamingTextResponse } from 'ai';
-
-// const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
-
-// // convert messages from the Vercel AI SDK Format to the format
-// // that is expected by the Google GenAI SDK
-// const buildGoogleGenAIPrompt = (messages: Message[]) => ({
-//   contents: messages
-//     .filter(message => message.role === 'user' || message.role === 'assistant')
-//     .map(message => ({
-//       role: message.role === 'user' ? 'user' : 'model',
-//       parts: [{ text: message.content }],
-//     })),
-// });
-
-// export async function POST(req: Request) {
-//   // Extract the `prompt` from the body of the request
-//   const { messages } = await req.json();
-
-//   const geminiStream = await genAI
-//     .getGenerativeModel({ model: 'gemini-pro' })
-//     .generateContentStream(buildGoogleGenAIPrompt(messages));
-
-//   // Convert the response into a friendly text-stream
-//   const stream = creategoogle(geminiStream);
-
-//   // Respond with the stream
-//   return new StreamingTextResponse(stream);
-// }

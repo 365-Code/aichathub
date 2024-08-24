@@ -42,6 +42,7 @@ export async function createResource(
         },
       },
     });
+
   } catch (error) {
     console.log(error);
   }
@@ -87,7 +88,7 @@ export async function updateResourceWithEmbeddings(
 
     const msgId = generateUUID();
     const embeddings = await generateEmbeddings(message.content);
-    if (!embeddings || !msgId || !resource.chatId || !message) return;
+    if(!embeddings || !msgId || !resource.chatId || !message) return
     const chat = await prisma.$transaction(async (tx) => {
       const chat = await tx.chat.update({
         where: {
@@ -116,7 +117,7 @@ export async function updateResourceWithEmbeddings(
         },
       ]);
 
-      return chat;
+      return chat
     });
   } catch (error) {
     console.log(error);
@@ -136,7 +137,6 @@ export async function createResourceWithEmbedding(
 
     const embeddings = await generateEmbeddings(message.content);
     const msgId = generateUUID();
-    // console.log(resource.chatId, resource.title, msgId, embeddings);
     const chat = await prisma.$transaction(async (tx) => {
       const chat = await tx.chat.create({
         data: {
@@ -165,7 +165,8 @@ export async function createResourceWithEmbedding(
         },
       ]);
     });
+
   } catch (error) {
-    console.log("Error", error);
+    throw error
   }
 }
